@@ -9,6 +9,7 @@ namespace crawler
 {
 class Response
 {
+public:
     class Block
     {
     public:
@@ -30,6 +31,8 @@ class Response
         std::string::size_type size() const;
         std::string::reference operator[](std::size_t pos);
         std::string::const_reference operator[](std::size_t pos) const;
+        bool start_with(const char* prefix, std::size_t& pos) const;
+        void pass_until_meet(const char* suffix, std::size_t& pos) const;
     private:
         std::string &data;
         std::size_t start;
@@ -44,6 +47,8 @@ public:
     {
     }
 
+    ~Response() = default;
+
     const std::string& get_data() const
     {
         return raw_content;
@@ -55,7 +60,7 @@ public:
 private:
     void remove_unrelated();
     void generate_blocks();
-    bool start_with(const char *prefix, std::size_t& pos);
+    bool start_with(const char *prefix, std::size_t& pos) const;
     void pass_until_meet(const char *suffix, std::size_t& pos);
     void reverse_pass_until_meet(const char* prefix, std::size_t& pos);
 private:

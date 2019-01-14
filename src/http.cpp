@@ -1,5 +1,6 @@
 #include <iostream>
 #include <fstream>
+#include <stdexcept>
 #include <string>
 #include <cstring>
 #include <netdb.h>
@@ -10,7 +11,7 @@
 #include <utility>
 
 #include "http.h"
-
+// #define DEBUG
 using namespace crawler;
 
 struct in_addr Request::host_ip;
@@ -41,6 +42,40 @@ namespace
         // }
         return ((struct sockaddr_in*)(result->ai_addr))->sin_addr;
     }
+
+    bool start_with(const std::string& raw_content, const char* prefix, std::size_t& pos)
+    {
+        std::size_t i = pos;
+        for (; i < raw_content.size() && *prefix && (raw_content[i] == *prefix); ++prefix, ++i)
+            continue;
+        if (*prefix)
+        {
+            return false;
+        }
+        else
+        {
+            pos = i;
+            return true;
+        }
+    }
+
+    void pass_until_meet(const std::string& raw_content, const char* suffix, std::size_t& pos)
+    {
+        for (std::size_t i = pos; i < raw_content.size();)
+        {
+            const char *p = suffix;
+            std::size_t tmp = i;
+            for (; *p && *p == raw_content[tmp]; ++p, ++tmp)
+                continue;
+            if (*p)
+                ++i;
+            else
+            {
+                pos = tmp;
+                return;
+            }
+        }
+    }
 }; // unnamed namespace
 
 Response::Response(std::string&& s)
@@ -69,6 +104,16 @@ void Response::remove_unrelated()
     for (; i < raw_content.size();)
     {
         // std::cout << i << "\n";
+#ifdef DEBUG
+        if (start_with("href=\"http://blog.sina.com.cn", i))
+        {
+            for (size_t x = i-23; x < i; ++x) {
+                std::cout << raw_content[x];
+            }
+            std::cout << "\n";
+        }
+        else
+#endif
         if (start_with("<script", i))
         {
             pass_until_meet("</script", i);
@@ -103,6 +148,7 @@ void Response::remove_unrelated()
 void Response::generate_blocks()
 {
     std::size_t head_start, head_finish, body_start, body_finish;
+    head_finish = body_finish = 0;
     for (std::size_t i = start; i < finish;)
     {
         if (start_with("<head", i))
@@ -112,6 +158,8 @@ void Response::generate_blocks()
             head_start = i;
             pass_until_meet("</head", i);
             head_finish = i-6;
+            if (head_start >= head_finish)
+                head_finish = 0;
             while (raw_content[i++] != '>')
                 continue;
             for (std::size_t j = i; j < finish; ++j)
@@ -123,6 +171,8 @@ void Response::generate_blocks()
                     body_start = i;
                     body_finish = finish -1;
                     reverse_pass_until_meet("ydob/<", body_finish);
+                    if (body_start >= body_finish || body_finish >= finish)
+                        body_finish = 0;
                     goto FINISH;
                 }
             }
@@ -132,44 +182,23 @@ void Response::generate_blocks()
     }
 
 FINISH:
+    if (head_finish == 0 || body_finish == 0)
+        throw std::logic_error("head_finish and body finish shouldn't be 0\n");
     raw_content[head_finish] = '\0';
     raw_content[body_finish] = '\0';
     head.init(head_start, head_finish);
     body.init(body_start, body_finish);
+    // std::cout << body_start << " " << body_finish << " " << finish << "\n";
 }
 
-bool Response::start_with(const char* prefix, std::size_t& pos)
+bool Response::start_with(const char* prefix, std::size_t& pos) const
 {
-    std::size_t i = pos;
-    for (; *prefix && (raw_content[i] == *prefix || raw_content[i] == toupper(*prefix)); ++prefix, ++i)
-        continue;
-    if (*prefix)
-    {
-        return false;
-    }
-    else
-    {
-        pos = i;
-        return true;
-    }
+    return ::start_with(raw_content, prefix, pos);
 }
 
 void Response::pass_until_meet(const char *suffix, std::size_t& pos)
 {
-    for (std::size_t i = pos; pos < raw_content.size();)
-    {
-        const char *p = suffix;
-        std::size_t tmp = i;
-        for (; *p && *p == raw_content[tmp]; ++p, ++tmp)
-            continue;
-        if (*p)
-            ++i;
-        else
-        {
-            pos = tmp;
-            return;
-        }
-    }
+    ::pass_until_meet(raw_content, suffix, pos);
 }
 
 void Response::reverse_pass_until_meet(const char *prefix, std::size_t& pos)
@@ -188,6 +217,21 @@ void Response::reverse_pass_until_meet(const char *prefix, std::size_t& pos)
             return;
         }
     }
+}
+
+bool Response::Block::start_with(const char* prefix, std::size_t& pos) const
+{
+    pos += start;
+    bool ans = ::start_with(data, prefix, pos);
+    pos -= start;
+    return ans;
+}
+
+void Response::Block::pass_until_meet(const char* suffix, std::size_t& pos) const
+{
+    pos += start;
+    ::pass_until_meet(data, suffix, pos);
+    pos -= start;
 }
 
 const char* Response::Block::c_str() const
@@ -333,6 +377,7 @@ Response Request::get_response() const
         }
     }
 
+    close(sock_fd);
     // std::ofstream fout("test1.txt");
 
     // fout << data << "\n";

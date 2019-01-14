@@ -1,18 +1,16 @@
-#include <iostream>
-#include <fstream>
-#include <unordered_set>
+#include <fcntl.h>
+#include <unistd.h>
 #include "http.h"
+#include "crawl.h"
 
-std::unordered_set<std::string> hosts;
+// #define DEBUG
+
+using namespace crawler;
+
+std::string host(HOST);
 
 int main()
 {
-    crawler::Request r("blog.sina.com.cn");
-    auto res = r.slow_get_response();
-
-    std::ofstream fout("test.txt");
-
-    fout << res.get_data().c_str();
-    std::cout << "head:\n\n" << res.get_head().c_str() << "\n";
-    std::cout << "body:\n\n" << res.get_body().c_str() << "\n";
+    crawl(host);
 }
+

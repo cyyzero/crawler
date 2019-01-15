@@ -80,8 +80,8 @@ void crawl(std::string host)
     {
         auto && h = hosts_queue.front();
 #ifdef MULTI_THREAD
-        pool.add_job( [host = std::move(h)] () {
-            process_one(std::move(host));
+        pool.add_job( [=] () {
+            process_one(std::move(h));
         });
 #else
         process_one(h);

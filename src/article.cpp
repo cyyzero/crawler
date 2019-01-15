@@ -103,7 +103,7 @@ bool getfre(Response::Block& block, int start, int lenth)
 
 int getM(Response::Block& text, int &mzx, int num)
 {
-    int M = 0;
+    // int M = 0;
     int *nop = new int[num];
     int dt = text.size() / num;
     for (int i = 0; i < num; i++)
@@ -115,7 +115,7 @@ int getM(Response::Block& text, int &mzx, int num)
         else
             nop[i] = 0;
     }
-    int start = 0;
+    // int start = 0;
     int mstart = 0;
     int flag = 0;
     int maxzz = 0;
@@ -154,7 +154,7 @@ int getM(Response::Block& text, int &mzx, int num)
 void gettagnum(Response::Block &text, int M, short *x)
 {
     int flag1 = 0; //标记还未遇到<
-    for (int i = 0; i < text.size(); i++)
+    for (int i = 0; i < (int)text.size(); i++)
     {
         if (flag1 == 0)
         {
@@ -234,11 +234,14 @@ std::string getcontent(Response::Block &a, int len)
     int start, end;
     getStart_End(z, a.size(), start, end, m); //获得文本的开始和结束位置
     delete[] z;
-    if (end < start)
+    
+    if ((start >= 0 && start < end && end < (int)a.size()))
     {
-        end = start + 1000;
+        start = (int)a.size() / 5;
+        end = start * 2;
     }
-    return std::string(a.c_str() + start, end - start);
+
+    return std::string(a.c_str()+start, end - start);
 }
 
 std::string denoising(Response::Block& body)
@@ -381,7 +384,6 @@ void Article::convert_encoding()
     if (cd == (iconv_t)-1)
         return;
 
-    char **in_p, **out_p;
     std::size_t in_len, out_len;
 
     CONVERT(title);
@@ -395,6 +397,7 @@ void Article::convert_encoding()
 
 } // namesapce crawler
 
+#undef CONVERT
 #undef FPUTS
 #undef FPRINT
 #undef GETLINE
